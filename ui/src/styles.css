@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/hanken-grotesk";
+
+@theme {
+  --color-mat: #0e3b33;
+  --color-mat-deep: #0a2c26;
+  --color-mat-raised: #15493e;
+  --color-mat-line: #2a6657;
+  --color-paper: #edf4ee;
+  --color-paper-dim: #a9c8ba;
+  --color-tape: #ffd21f;
+  --color-tape-ink: #1b2415;
+  --color-cut: #ff9a87;
+  --color-keep: #7de3b4;
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-sans: "Hanken Grotesk Variable", system-ui, sans-serif;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-mat);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The workspace is a cutting mat: a fine grid with a heavier line every five squares. */
+.mat-grid {
+  background-color: var(--color-mat);
+  background-image:
+    linear-gradient(to right, rgb(125 227 180 / 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(125 227 180 / 0.1) 1px, transparent 1px),
+    linear-gradient(to right, rgb(125 227 180 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(125 227 180 / 0.035) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+}
+
+/* Clips look like torn strips of the same yellow tape used for on-video hooks. */
+.tape {
+  background: var(--color-tape);
+  color: var(--color-tape-ink);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3px) 25%, 100% 50%, calc(100% - 3px) 75%, 100% 100%, 0 100%, 3px 75%, 0 50%, 3px 25%);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-tape);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--color-mat-line);
+  border-radius: 6px;
+  background: var(--color-mat-deep);
+  padding: 0.5rem 0.7rem;
+  color: var(--color-paper);
+}
+
+.field::placeholder {
+  color: rgb(169 200 186 / 0.75);
+}
+
+.field:focus {
+  border-color: var(--color-tape);
+  outline: none;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-mat-line) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

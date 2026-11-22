@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; font: 13px system-ui, sans-serif; color: #bbb; }
+  #stage { position: relative; overflow: hidden; line-height: 0; user-select: none; touch-action: none; border-radius: 6px; }
+  #stage img { width: 100%; display: block; pointer-events: none; }
+  #box { position: absolute; box-sizing: border-box; border: 2px solid #ffe500; cursor: move;
+         box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); outline: none; }
+  #box:focus-visible { border-color: #fff; }
+  .handle { position: absolute; width: 16px; height: 16px; background: #ffe500; border: 2px solid #111; box-sizing: border-box; }
+  .nw { left: -8px; top: -8px; cursor: nwse-resize; } .ne { right: -8px; top: -8px; cursor: nesw-resize; }
+  .sw { left: -8px; bottom: -8px; cursor: nesw-resize; } .se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+  #info { padding-top: 6px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <img id="frame" alt="Video frame">
+  <div id="box" tabindex="0" role="slider" aria-label="Webcam area. Arrow keys move it, Shift with arrows resizes it.">
+    <div class="handle nw" data-corner="nw"></div><div class="handle ne" data-corner="ne"></div>
+    <div class="handle sw" data-corner="sw"></div><div class="handle se" data-corner="se"></div>
+  </div>
+</div>
+<div id="info"></div>
+<script>
+const MIN = 32;
+const stage = document.getElementById("stage"), img = document.getElementById("frame");
+const boxEl = document.getElementById("box"), info = document.getElementById("info");
+let W = 1920, H = 1080, box = [0, 0, 320, 180], token = null, drag = null;
+
+const send = (type, data) => parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+const resize = () => send("streamlit:setFrameHeight", { height: document.documentElement.scrollHeight });
+const commit = () => send("streamlit:setComponentValue", { value: box.map(Math.round), dataType: "json" });
+
+function draw() {
+  const [x, y, w, h] = box;
+  boxEl.style.left = x / W * 100 + "%"; boxEl.style.top = y / H * 100 + "%";
+  boxEl.style.width = w / W * 100 + "%"; boxEl.style.height = h / H * 100 + "%";
+  info.textContent = `Position ${Math.round(x)}, ${Math.round(y)}  ·  Size ${Math.round(w)} × ${Math.round(h)}  ·  Drag to move, corners to resize`;
+}
+function clamp(x, y, w, h) {
+  w = Math.min(Math.max(w, MIN), W); h = Math.min(Math.max(h, MIN), H);
+  return [Math.min(Math.max(x, 0), W - w), Math.min(Math.max(y, 0), H - h), w, h];
+}
+function imagePoint(event) {
+  const r = img.getBoundingClientRect();
+  return [(event.clientX - r.left) * W / r.width, (event.clientY - r.top) * H / r.height];
+}
+boxEl.addEventListener("pointerdown", event => {
+  event.preventDefault(); boxEl.focus();
+  drag = { corner: event.target.dataset.corner || null, start: imagePoint(event), box: [...box] };
+  boxEl.setPointerCapture(event.pointerId);
+});
+boxEl.addEventListener("pointermove", event => {
+  if (!drag) return;
+  const [px, py] = imagePoint(event), dx = px - drag.start[0], dy = py - drag.start[1];
+  let [x, y, w, h] = drag.box;
+  if (!drag.corner) { x += dx; y += dy; }
+  else {
+    if (drag.corner.includes("w")) { const nw = Math.max(MIN, Math.min(w - dx, x + w)); x += w - nw; w = nw; }
+    else w = Math.min(w + dx, W - x);
+    if (drag.corner.includes("n")) { const nh = Math.max(MIN, Math.min(h - dy, y + h)); y += h - nh; h = nh; }
+    else h = Math.min(h + dy, H - y);
+  }
+  box = clamp(x, y, w, h); draw();
+});
+const finish = () => { if (drag) { drag = null; commit(); } };
+boxEl.addEventListener("pointerup", finish);
+boxEl.addEventListener("pointercancel", finish);
+boxEl.addEventListener("keydown", event => {
+  const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+  if (!move) return;
+  event.preventDefault();
+  const step = 4, [x, y, w, h] = box;
+  box = event.shiftKey ? clamp(x, y, w + move[0] * step, h + move[1] * step)
+                       : clamp(x + move[0] * step, y + move[1] * step, w, h);
+  draw(); commit();
+});
+img.addEventListener("load", resize);
+window.addEventListener("resize", resize);
+window.addEventListener("message", event => {
+  if (event.data.type !== "streamlit:render") return;
+  const args = event.data.args;
+  if (img.getAttribute("src") !== args.image) img.src = args.image;
+  W = args.width; H = args.height;
+  if (token !== args.token) { token = args.token; box = clamp(...args.box); }
+  draw(); resize();
+});
+send("streamlit:componentReady", { apiVersion: 1 });
+</script>
+</body>
+</html>
