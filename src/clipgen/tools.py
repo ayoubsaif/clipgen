@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import os
 import re
 import shutil
@@ -55,6 +56,18 @@ def prepare_gpu_libraries() -> tuple[str, ...]:
         if hasattr(os, "add_dll_directory"):
             os.add_dll_directory(folder)
     return folders
+
+
+def cuda_available() -> bool:
+    """Check for the CUDA library on Windows, where a missing DLL is the usual reason for no GPU."""
+    if os.name != "nt":
+        return True
+    prepare_gpu_libraries()
+    try:
+        ctypes.WinDLL("cublas64_12.dll")
+    except OSError:
+        return False
+    return True
 
 
 def run_ffmpeg(args: list[str], cwd: Path | None = None, timeout: float | None = None) -> None:

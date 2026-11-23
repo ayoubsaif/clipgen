@@ -275,3 +275,16 @@ def test_video_without_speech_gets_a_clear_error():
     with pytest.raises(RuntimeError, match="No speech"):
         select_clips(Transcript("es", "whisper", 12.0, []), _ShortClipProvider(0, 5),
                      SelectionOptions(count=1), None, lambda _: None)
+
+
+@pytest.mark.parametrize("device,has_cuda,expected", [
+    ("auto", True, ["cuda", "cpu"]),
+    ("auto", False, ["cpu"]),
+    ("cpu", True, ["cpu"]),
+    ("cuda", False, ["cuda"]),
+])
+def test_whisper_skips_cuda_when_its_library_is_missing(monkeypatch, device, has_cuda, expected):
+    from clipgen import transcript
+
+    monkeypatch.setattr(transcript, "cuda_available", lambda: has_cuda)
+    assert [name for name, _ in transcript.whisper_attempts(device)] == expected

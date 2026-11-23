@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from .models import Segment, Transcript, Word
-from .tools import media_duration, prepare_gpu_libraries, run_ffmpeg
+from .tools import cuda_available, media_duration, prepare_gpu_libraries, run_ffmpeg
 
 _CUE_TIME = re.compile(
     r"(?:(\d+):)?(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(?:(\d+):)?(\d{2}):(\d{2})\.(\d{3})"
@@ -104,6 +104,16 @@ def _read_pcm(path: Path) -> np.ndarray:
     return np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
 
 
+def whisper_attempts(device: str) -> list[tuple[str, str]]:
+    if device == "cuda":
+        return [("cuda", "float16")]
+    if device == "auto" and cuda_available():
+        return [("cuda", "float16"), ("cpu", "int8")]
+    if device == "auto":
+        print("No NVIDIA GPU libraries found. Transcribing on the CPU, which can take a while.")
+    return [("cpu", "int8")]
+
+
 def transcribe_whisper(
     media: Path,
     workdir: Path,
@@ -117,11 +127,7 @@ def transcribe_whisper(
     audio = workdir / "audio.wav"
     run_ffmpeg(["-i", str(media), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio)])
 
-    attempts = (
-        [("cuda", "float16"), ("cpu", "int8")] if device == "auto"
-        else [("cuda", "float16")] if device == "cuda"
-        else [("cpu", "int8")]
-    )
+    attempts = whisper_attempts(device)
     last_error: Exception | None = None
     try:
         for attempt_device, compute_type in attempts:
@@ -138,10 +144,15 @@ def transcribe_whisper(
                     condition_on_previous_text=False,
                 )
                 segments = []
+                reported = 0
                 for item in stream:
                     words = [Word(w.start, w.end, w.word.strip()) for w in item.words or [] if w.word.strip()]
                     if words:
                         segments.append(Segment(item.start, item.end, item.text.strip(), words))
+                    tenth = int(min(item.end / max(info.duration, 0.01), 1) * 10)
+                    if attempt_device == "cpu" and tenth > reported:
+                        reported = tenth
+                        print(f"Transcribed {tenth * 10}%")
                 return segments, info.language
             except (RuntimeError, OSError) as error:
                 last_error = error
