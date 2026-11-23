@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import whispercpp
 from .credentials import load_ai_credentials
 from .desktop import create_shortcut, run_app, run_window, streamlit_command
 from .llm import PROVIDERS, ProviderError, make_provider
@@ -100,6 +101,9 @@ def doctor() -> int:
         checks.append(("Whisper on GPU (CUDA libraries)", True, ""))
     except OSError as error:
         checks.append(("Whisper on GPU (CUDA libraries)", False, f"falls back to CPU: {error}"))
+    binary = whispercpp.find_binary()
+    checks.append(("whisper.cpp (Windows on ARM GPU)", binary is not None,
+                   str(binary) if binary else "optional, see scripts/build-whisper-cpp.ps1"))
     checks += [
         ("Claude Code login path", shutil.which("claude") is not None, "provider claude-cli"),
         ("OpenCode", shutil.which("opencode") is not None, "provider opencode"),

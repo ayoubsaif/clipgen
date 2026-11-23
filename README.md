@@ -25,9 +25,19 @@ Setup picks the right install for this computer:
 
 - **NVIDIA GPU:** adds the CUDA library (about 550 MB) inside this project's environment, so Whisper runs on the GPU.
 - **No NVIDIA GPU:** Whisper runs on the CPU.
-- **Windows on ARM:** installs x64 Python and runs through Windows emulation, because Whisper has no ARM build. Transcription is slow, so prefer videos with platform captions or a smaller Whisper model.
+- **Windows on ARM:** installs x64 Python and runs through Windows emulation, because faster-whisper has no ARM build. Transcription uses the CPU unless you add whisper.cpp below.
 
 The first transcription also downloads the Whisper model.
+
+### GPU on Windows on ARM (NVIDIA RTX Spark)
+
+clipgen can use a native ARM64 build of [whisper.cpp](https://github.com/ggml-org/whisper.cpp) with Vulkan. Build it once on that computer:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-whisper-cpp.ps1
+```
+
+If tools are missing, the script lists the `winget` commands to install them (Visual Studio Build Tools and the Vulkan SDK) and stops. The build goes to `%LOCALAPPDATA%\clipgen\whisper.cpp`, and its models download there on first use. clipgen then uses it whenever CUDA is unavailable, and falls back to the CPU if it fails. The job log shows which device it used, such as `whisper.cpp is using Vulkan0`.
 
 ```powershell
 uv run clipgen doctor

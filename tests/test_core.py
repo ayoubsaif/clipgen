@@ -288,3 +288,57 @@ def test_whisper_skips_cuda_when_its_library_is_missing(monkeypatch, device, has
 
     monkeypatch.setattr(transcript, "cuda_available", lambda: has_cuda)
     assert [name for name, _ in transcript.whisper_attempts(device)] == expected
+
+
+def _token(text, start=None, end=None):
+    token = {"text": text, "id": 1, "p": 0.9}
+    return token | ({"offsets": {"from": start, "to": end}} if start is not None else {})
+
+
+def test_whispercpp_joins_tokens_into_words_and_skips_markers():
+    from clipgen import whispercpp
+
+    segments, language = whispercpp.parse_output({"result": {"language": "es"}, "transcription": [
+        {"tokens": [_token("[_BEG_]", 0, 0), _token(" Ho", 100, 200), _token("la", 200, 400), _token(",", 400, 420),
+                    _token(" chat", 500, 900), _token("[_TT_50]")]},
+        {"tokens": [_token("[_BEG_]", 1000, 1000)]},
+    ]})
+    assert language == "es"
+    assert len(segments) == 1
+    assert [(w.text, w.start, w.end) for w in segments[0].words] == [("Hola,", 0.1, 0.42), ("chat", 0.5, 0.9)]
+    assert segments[0].text == "Hola, chat"
+
+
+def _whisper_audio(tmp_path, monkeypatch, transcript_module, has_cuda, binary):
+    monkeypatch.setattr(transcript_module, "run_ffmpeg", lambda args: (tmp_path / "audio.wav").write_bytes(b"x"))
+    monkeypatch.setattr(transcript_module, "cuda_available", lambda: has_cuda)
+    monkeypatch.setattr(transcript_module.whispercpp, "find_binary", lambda: binary)
+
+
+def test_whispercpp_is_used_only_without_cuda(tmp_path, monkeypatch):
+    from clipgen import transcript
+
+    _whisper_audio(tmp_path, monkeypatch, transcript, False, Path("whisper-cli.exe"))
+    monkeypatch.setattr(transcript.whispercpp, "transcribe", lambda *args: (["gpu"], "es"))
+    assert transcript.transcribe_whisper(tmp_path / "v.mp4", tmp_path) == (["gpu"], "es")
+    assert not (tmp_path / "audio.wav").exists()
+
+    _whisper_audio(tmp_path, monkeypatch, transcript, True, Path("whisper-cli.exe"))
+    monkeypatch.setattr(transcript, "whisper_attempts", lambda device: [])
+    monkeypatch.setattr(transcript.whispercpp, "transcribe", lambda *args: pytest.fail("CUDA computers keep faster-whisper"))
+    with pytest.raises(RuntimeError, match="Transcription failed"):
+        transcript.transcribe_whisper(tmp_path / "v.mp4", tmp_path)
+
+
+def test_whispercpp_failure_falls_back_to_cpu(tmp_path, monkeypatch):
+    from clipgen import transcript
+
+    _whisper_audio(tmp_path, monkeypatch, transcript, False, Path("whisper-cli.exe"))
+    def broken(*args):
+        raise RuntimeError("no Vulkan device")
+    attempts = []
+    monkeypatch.setattr(transcript.whispercpp, "transcribe", broken)
+    monkeypatch.setattr(transcript, "whisper_attempts", lambda device: attempts.append(device) or [])
+    with pytest.raises(RuntimeError, match="Transcription failed"):
+        transcript.transcribe_whisper(tmp_path / "v.mp4", tmp_path)
+    assert attempts == ["auto"]

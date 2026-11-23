@@ -9,8 +9,10 @@ import re
 import wave
 from pathlib import Path
 
+import httpx
 import numpy as np
 
+from . import whispercpp
 from .models import Segment, Transcript, Word
 from .tools import cuda_available, media_duration, prepare_gpu_libraries, run_ffmpeg
 
@@ -127,9 +129,16 @@ def transcribe_whisper(
     audio = workdir / "audio.wav"
     run_ffmpeg(["-i", str(media), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio)])
 
-    attempts = whisper_attempts(device)
     last_error: Exception | None = None
     try:
+        # whisper.cpp only steps in where faster-whisper cannot reach the GPU.
+        binary = whispercpp.find_binary() if device == "auto" and not cuda_available() else None
+        if binary:
+            try:
+                return whispercpp.transcribe(binary, audio, model_name, language)
+            except (RuntimeError, OSError, ValueError, httpx.HTTPError) as error:
+                print(f"whisper.cpp failed, so clipgen will use the CPU: {error}")
+        attempts = whisper_attempts(device)
         for attempt_device, compute_type in attempts:
             model = None
             try:
