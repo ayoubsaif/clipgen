@@ -91,7 +91,7 @@ def run_window(port: int) -> int:
         deadline = time.monotonic() + START_TIMEOUT
         while not port_open(port):
             if server.poll() is not None or time.monotonic() > deadline:
-                show_error("clipgen could not start. Run: uv run --extra gpu clipgen ui")
+                show_error("clipgen could not start. Run: uv run clipgen ui")
                 return 1
             time.sleep(0.25)
         subprocess.Popen(window_command(browser, port)).wait()
@@ -130,7 +130,7 @@ def run_app() -> int:
         deadline = time.monotonic() + START_TIMEOUT
         while not port_open(port):
             if server.poll() is not None or time.monotonic() > deadline:
-                show_error("clipgen could not start. Run: uv run --extra gpu clipgen api --ui")
+                show_error("clipgen could not start. Run: uv run clipgen api --ui")
                 return 1
             time.sleep(0.2)
         # A new profile per launch keeps this browser process alive until its own window closes.

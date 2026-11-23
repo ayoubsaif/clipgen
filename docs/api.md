@@ -3,13 +3,13 @@
 This API connects the desktop interface to the Python engine. The full request and response schema is in [openapi.json](openapi.json). Regenerate it after changing the API:
 
 ```powershell
-uv run --extra gpu clipgen api --export-openapi docs/openapi.json
+uv run clipgen api --export-openapi docs/openapi.json
 ```
 
 ## Start it
 
 ```powershell
-uv run --extra gpu clipgen api
+uv run clipgen api
 ```
 
 The first line printed is JSON with the address and a token that is new on each launch:

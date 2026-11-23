@@ -18,10 +18,16 @@ Nothing is sent unless you press the button in Step 2.
 ## Setup
 
 ```powershell
-uv sync --extra gpu
+.\scripts\setup.cmd
 ```
 
-The `gpu` extra adds NVIDIA's CUDA library (about 550 MB) inside this project's environment. Without it, Whisper runs on the CPU. The first transcription also downloads the Whisper model.
+Setup picks the right install for this computer:
+
+- **NVIDIA GPU:** adds the CUDA library (about 550 MB) inside this project's environment, so Whisper runs on the GPU.
+- **No NVIDIA GPU:** Whisper runs on the CPU.
+- **Windows on ARM:** installs x64 Python and runs through Windows emulation, because Whisper has no ARM build. Transcription is slow, so prefer videos with platform captions or a smaller Whisper model.
+
+The first transcription also downloads the Whisper model.
 
 ```powershell
 uv run clipgen doctor
@@ -34,13 +40,13 @@ Double-click `Start clipgen.cmd`. It sets up clipgen the first time, then opens 
 To add a desktop icon:
 
 ```powershell
-uv run --extra gpu clipgen shortcut
+uv run clipgen shortcut
 ```
 
 To run it in a normal browser tab at http://127.0.0.1:8501 instead:
 
 ```powershell
-uv run --extra gpu clipgen ui
+uv run clipgen ui
 ```
 
 The app creates clips, follows progress, edits text, approves clips and manages credentials. It only listens on this computer and needs Microsoft Edge or Google Chrome for its window.
@@ -71,7 +77,7 @@ Postiz is licensed under AGPL-3.0. clipgen contains no Postiz code and talks to 
 The new Preact and Tailwind interface has the same features as the Streamlit app. Open it with:
 
 ```powershell
-uv run --extra gpu clipgen app
+uv run clipgen app
 ```
 
 It opens in its own window and uses a new private token each launch. Closing the window stops its server. A job already running keeps going. The desktop icon and `Start clipgen.cmd` still open the Streamlit app.
